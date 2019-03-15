@@ -5,11 +5,32 @@
  * part of the UCB release of Plan 9, including this file, may be copied,
  * modified, propagated, or distributed except according to the terms contained
  * in the LICENSE file.
- */
-
-/*
+ * 
  * ahci serial ata driver
  * copyright © 2007-8 coraid, inc.
+ */
+
+/* Notes.
+ * This driver is used by devsd.  The driver is declared in cpu.c.  It's all
+ * wrapped up in a SDifc struct.
+ * This code relies on pci.  It seems to register specific vid/did PCI entries
+ * as ahci controllers.  I think it should look for the general case of
+ * baseclass/subclass/progid that applies to ahci drives too.  Need to check.
+ * What's the first entrypoint here?
+ * How do we enable debug output?
+ * SDifc:
+ *   pnp()
+ *     called by devsd sdreset to probe all known controller types.  Returns
+ *     SDev pointers that are then registered in devsd.
+ *   legacy()
+ *     isn't used any more - should be deleted
+ *   enable()
+ *     called from devsd sdgetunit, which is called from sdgen and sdattach
+ *   disable()
+ *     called from devsd unconfigure, which is called from sdconfig.  This is
+ *     called from devsd config, or sdwrite (via legacytopctl if config written
+ *     to topctl).  Can we delete legacytopctl?
+ * iaonline is called before partitions are initialised.
  */
 
 #include "u.h"
