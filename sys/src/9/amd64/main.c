@@ -203,7 +203,6 @@ squidboy(int apicno, Mach *mach)
 	 * until a timebase is worked out.
 	 */
 	mach->cpuhz = 2000000000ll;
-	mach->cpumhz = 2000;
 	mach->perf.period = 1;
 
 	mach->NIX.nixtype = NIXAC;
@@ -227,7 +226,6 @@ squidboy(int apicno, Mach *mach)
 		hz = 2000000000ll;
 	mach->cpuhz = hz;
 	mach->cyclefreq = hz;
-	mach->cpumhz = hz/1000000ll;
 
 
 	mmuinit();
@@ -536,7 +534,6 @@ main(uint32_t mbmagic, uint32_t mbaddress)
 	 * until a timebase is worked out.
 	 */
 	mach->cpuhz = 2000000000ll;
-	mach->cpumhz = 2000;
 	sys->cyclefreq = mach->cpuhz;
 
 	cgainit();
@@ -563,7 +560,6 @@ main(uint32_t mbmagic, uint32_t mbaddress)
 		mach->cpuhz = hz;
 		mach->cyclefreq = hz;
 		sys->cyclefreq = hz;
-		mach->cpumhz = hz/1000000ll;
 	}
 	//iprint("archhz returns 0x%lld\n", hz);
 	//iprint("NOTE: if cpuidhz runs too fast, we get die early with a NULL pointer\n");
@@ -651,7 +647,9 @@ if (1){	acpiinit(); hi("	acpiinit();\n");}
 	alloc_cpu_buffers();
 
 	acpistart();
-	print("CPU Freq. %dMHz\n", mach->cpumhz);
+
+	int64_t cpumhz = mach->cpuhz / 1000000ll;
+	print("CPU Freq. %dMHz\n", cpumhz);
 
 	print("schedinit...\n");
 

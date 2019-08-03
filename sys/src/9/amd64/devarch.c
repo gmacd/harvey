@@ -539,7 +539,8 @@ cputyperead(Chan* c, void *a, int32_t n, int64_t off)
 	} else
 		vendorid = cpuidname(info0);
 
-	s = seprint(buf, e, "%s CPU @ %uMHz\ncpu cores: %d\n", vendorid, machp()->cpumhz, sys->nmach);
+	int64_t cpumhz = machp()->cpuhz / 1000000ll;
+	s = seprint(buf, e, "%s CPU @ %uMHz\ncpu cores: %d\n", vendorid, cpumhz, sys->nmach);
 
 	if(DBGFLG) {
 		k = machp()->CPU.ncpuinfoe - machp()->CPU.ncpuinfos;
