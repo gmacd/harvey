@@ -19,6 +19,7 @@
 typedef enum CpuHypervisor {
 	CpuHypervisorUnknown = 0,
 	CpuHypervisorKvm,
+	CpuHypervisorVbox,
 } CpuHypervisor;
 
 static int
@@ -100,6 +101,10 @@ cpuhypervisor()
 		char *hypname = (char*)&info[1];
 		if (!memcmp("KVMKVMKVM\0\0\0", hypname, 12)) {
 			return CpuHypervisorKvm;
+		} else if (!memcmp("VBoxVBoxVBox", hypname, 12)) {
+			return CpuHypervisorVbox;
+		} else {
+			print("Unrecognised hypervisor: %s\n", hypname);
 		}
 	}
 	return CpuHypervisorUnknown;
@@ -136,8 +141,8 @@ cpuidhz(uint32_t *info0, uint32_t *info1, CpuHypervisor hypervisor)
 	uint8_t family = (info1[0] & 0xf00) >> 8;
 	uint8_t model = (info1[0] & 0xf0) >> 4;
 	uint8_t stepping = (info1[0] & 0xf);
-	print("CPUID family %x model %x proctype %x stepping %x model_ext %x family_ext %x hypervisor: %d\n",
-		family, model, proctype, stepping, model_ext, family_ext, hypervisor);
+	print("CPUID vendorid %s family %x model %x proctype %x stepping %x model_ext %x family_ext %x hypervisor: %d\n",
+		vendorid, family, model, proctype, stepping, model_ext, family_ext, hypervisor);
 
 	if (hypervisor != CpuHypervisorUnknown) {
 		hz = cpuidhz_hypervisor();
