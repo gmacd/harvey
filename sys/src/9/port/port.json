@@ -70,6 +70,7 @@
 			"../port/rmap.c",
 			"../port/sdscsi.c",
 			"../port/segment.c",
+			"../port/slab.c",
 			"../port/sysauth.c",
 			"../port/syscallfmt.c",
 			"../port/sysfile.c",
