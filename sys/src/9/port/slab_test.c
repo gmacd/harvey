@@ -29,6 +29,24 @@ typedef u64		uintptr;
 
 #define nelem(x) (sizeof(x) / sizeof((x)[0]))
 
+// TODO implement a spinlock?
+typedef u64 Mpl;
+typedef struct Lock Lock;
+typedef struct Proc Proc;
+typedef struct Mach Mach;
+struct Lock {
+	u32 key;
+	int isilock;
+	Mpl pl;
+	uintptr _pc;
+	Proc *p;
+	Mach *m;
+	u64 lockcycles;
+};
+
+int lock(Lock *l) { return 0; }
+void unlock(Lock *l) {}
+
 #include "slab.c"
 
 int main()

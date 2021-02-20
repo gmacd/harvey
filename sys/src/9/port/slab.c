@@ -70,10 +70,8 @@ struct KSlabBuf8 {
 	};
 };
 static_assert(sizeof(KSlabBuf8) == 8, "not expected size");
-// TODO align on page
 struct KSlab8 {
 	KSlabBuf8	bufs[KMallocSlab8NumBufs];
-	//u8		_padding[4];
 	KSlabSmallCtl	ctl;
 };
 static_assert(sizeof(KSlab8) == PGSZ, "not expected size");
@@ -82,6 +80,7 @@ struct KMemCache {
 	char	*name;
 	u32	objsize;
 	void	*slab;
+	Lock	lock;
 };
 
 /*static KMemCache cachecache = {
@@ -90,7 +89,7 @@ struct KMemCache {
 	.slab		= nil,
 };*/
 
-alignas(4096) static KSlab8 slab8 /*= {0}*/;
+alignas(4096) static KSlab8 slab8;
 static KMemCache kmalloccaches[] = {
 	{ .name = "kmemcache8", .objsize = 8, .slab = &slab8 },
 };
@@ -204,11 +203,13 @@ getslabsmallctl(void *slab)
 void *
 kmemcachealloc(KMemCache *cache)
 {
-	// TODO locking
+	lock(&cache->lock);
+
 	// TODO allocate more slabs if necessary
 	// TODO Check it's a small slab
 	KSlabSmallCtl *slabctl = getslabsmallctl(cache->slab);
 	if (slabctl->numfree == 0) {
+		unlock(&cache->lock);
 		panic("kmemcachealloc: slab full, unable to create new slab (%s)", cache->name);
 		return nil;
 	}
@@ -217,6 +218,7 @@ kmemcachealloc(KMemCache *cache)
 	KSlabBuf8 *buf = (KSlabBuf8*)slabctl->nextfree;
 	slabctl->nextfree = (KSlabBuf8*)(buf->bufctl.nextfree);
 	slabctl->numfree--;
+	unlock(&cache->lock);
 
 	return buf;
 }
@@ -225,6 +227,17 @@ kmemcachealloc(KMemCache *cache)
 void
 kmemcachefree(KMemCache *cache, void *obj)
 {
+	lock(&cache->lock);
+
+	// TODO different sized slabs
+	// Add to freelist
+	KSlabBuf8 *slabbuf = (KSlabBuf8*)obj;
+	KSlabSmallCtl *slabctl = getslabsmallctl(cache->slab);
+	slabctl->numfree++;
+	slabbuf->bufctl.nextfree = slabctl->nextfree;
+	slabctl->nextfree = obj;
+
+	unlock(&cache->lock);
 }
 
 // kmalloc is an equivalent to malloc, but allocates from the cache.  It will
@@ -260,20 +273,14 @@ kfree(void *obj)
 	// it's been allocated as a large object.  I guess we can imply the
 	// location of the slab ctl at the end of the page and use that to free.
 
-	// TODO lock
 	int numcaches = nelem(kmalloccaches);
 	for (int i = 0; i < numcaches; i++) {
 		// TODO handle more than one slab
-		if (!kmemcacheinslab(kmalloccaches[i].slab, obj)) {
-			continue;
+		if (kmemcacheinslab(kmalloccaches[i].slab, obj)) {
+			kmemcachefree(&kmalloccaches[i], obj);
+			return;
 		}
-
-		// Add to freelist
-		KSlabBuf8 *slabbuf = (KSlabBuf8*)obj;
-		KSlabSmallCtl *slabctl = getslabsmallctl(kmalloccaches[i].slab);
-		slabctl->numfree++;
-		slabbuf->bufctl.nextfree = slabctl->nextfree;
-		slabctl->nextfree = obj;
-		return;
 	}
+
+	panic("kfree: can't find cache to free %p", obj);
 }
