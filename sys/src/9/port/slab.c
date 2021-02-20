@@ -173,6 +173,7 @@ void kmemcachedestroy(KMemCache *cache)
 static int
 kmemcacheinslab(void *slab, void *obj)
 {
+	// TODO assert it's a valid position
 	return (obj >= slab && obj < slab + PGSZ);
 }
 
@@ -190,6 +191,13 @@ kmemcachefindslab(void *obj)
 	return nil;
 }
 
+// getslabsmallctl will return the ctl struct for the given slab
+static KSlabSmallCtl *
+getslabsmallctl(void *slab)
+{
+	return (KSlabSmallCtl*)(ROUNDDN((uintptr)slab, PGSZ) + PGSZ - sizeof(KSlabSmallCtl));
+}
+
 // kmemcachealloc allocates an object from the given cache.
 // TODO
 // - flags
@@ -199,8 +207,7 @@ kmemcachealloc(KMemCache *cache)
 	// TODO locking
 	// TODO allocate more slabs if necessary
 	// TODO Check it's a small slab
-	KSlabSmallCtl *slabctl = (KSlabSmallCtl*)(ROUNDDN((uintptr)cache->slab, PGSZ) + PGSZ - sizeof(KSlabSmallCtl));
-	//KSlabSmallCtl *slabctl = (KSlabSmallCtl*)p;
+	KSlabSmallCtl *slabctl = getslabsmallctl(cache->slab);
 	if (slabctl->numfree == 0) {
 		panic("kmemcachealloc: slab full, unable to create new slab (%s)", cache->name);
 		return nil;
@@ -247,9 +254,26 @@ kmalloc(usize size)
 
 // kfree is an equivalent to free, but for memory that was allocated via kmalloc.
 void
-kfree(void *bytes)
+kfree(void *obj)
 {
 	// Scan the kmalloc slabs.  If the address isn't in these slabs, assume
 	// it's been allocated as a large object.  I guess we can imply the
 	// location of the slab ctl at the end of the page and use that to free.
+
+	// TODO lock
+	int numcaches = nelem(kmalloccaches);
+	for (int i = 0; i < numcaches; i++) {
+		// TODO handle more than one slab
+		if (!kmemcacheinslab(kmalloccaches[i].slab, obj)) {
+			continue;
+		}
+
+		// Add to freelist
+		KSlabBuf8 *slabbuf = (KSlabBuf8*)obj;
+		KSlabSmallCtl *slabctl = getslabsmallctl(kmalloccaches[i].slab);
+		slabctl->numfree++;
+		slabbuf->bufctl.nextfree = slabctl->nextfree;
+		slabctl->nextfree = obj;
+		return;
+	}
 }

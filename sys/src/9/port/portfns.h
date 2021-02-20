@@ -168,7 +168,7 @@ int kbdcr2nl(Queue *, int);
 int kbdgetmap(int, int *, int *, Rune *);
 int kbdputc(Queue *, int);
 void kbdputmap(u16, u16, Rune);
-void kfree(void *bytes);
+void kfree(void *obj);
 void kmemcacheinit(void);
 KMemCache *kmemcachecreate(const char *name, u32 objsize);
 void *kmalloc(usize size);
