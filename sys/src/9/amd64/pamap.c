@@ -63,7 +63,7 @@ pamapdump(void)
 PAMap *
 pamapnew(u64 addr, usize size, int type)
 {
-	PAMap *m = malloc(sizeof(*m));
+	PAMap *m = kmalloc(sizeof(*m));
 	assert(m != nil);
 	memset(m, 0, sizeof(*m));
 	m->addr = addr;
@@ -134,7 +134,7 @@ pamapclearrange(u64 addr, usize size, int type)
 		if(np->size == 0){
 			PAMap *tmp = np->next;
 			*ppp = tmp;
-			free(np);
+			kfree(np);
 			np = tmp;
 			continue;
 		}
@@ -183,7 +183,7 @@ pamapinsert(u64 addr, usize size, int type)
 		if(np != nil && np->type == type && addr + size == np->addr){
 			pp->size += np->size;
 			pp->next = np->next;
-			free(np);
+			kfree(np);
 		}
 
 		return;
