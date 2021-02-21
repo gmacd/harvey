@@ -517,7 +517,7 @@ main(Mach *mach, u32 mbmagic, u32 mbaddress)
 	 */
 	cgapost(sizeof(uintptr) * 8);
 
-	kmemcacheinit();
+	kmemcacheinitall();
 	mallocinit();
 	pamapinit();
 	multiboot(mbmagic, mbaddress, 0);

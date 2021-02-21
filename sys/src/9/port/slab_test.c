@@ -47,16 +47,25 @@ struct Lock {
 int lock(Lock *l) { return 0; }
 void unlock(Lock *l) {}
 
+#define SLAB_TEST 1
 #include "slab.c"
+#undef SLAB_TEST
 
 int main()
 {
-	kmemcacheinit();
+	kmemcacheinitall();
 
-	void *ptrs[KMallocSlab8NumBufs];
+	void *ptrs[1000];
+
+	// First alloc (and also get the cache)
+	ptrs[0] = kmalloc(4);
+	assert(ptrs[0] != nil);
+	KMemCache *cache = kmemcachefindslab(ptrs[0]);
+	assert(!strcmp(cache->name, "kmemcache8"));
 
 	// Fill slab
-	for (int i = 0; i < KMallocSlab8NumBufs; i++) {
+	int numbufs = getnumbufs(cache);
+	for (int i = 1; i < numbufs; i++) {
 		ptrs[i] = kmalloc(4);
 		assert(ptrs[i] != nil);
 		assert(!strcmp(kmemcachefindslab(ptrs[i])->name, "kmemcache8"));
@@ -67,12 +76,12 @@ int main()
 	assert(fullptr == nil);
 
 	// Now let's free up everything
-	for (int i = 0; i < KMallocSlab8NumBufs; i++) {
+	for (int i = 0; i < numbufs; i++) {
 		kfree(ptrs[i]);
 	}
 
-	// Fill slab again - let's go with 8 byt buffers now
-	for (int i = 0; i < KMallocSlab8NumBufs; i++) {
+	// Fill slab again - let's go with 8 but buffers now
+	for (int i = 0; i < numbufs; i++) {
 		ptrs[i] = kmalloc(8);
 		assert(ptrs[i] != nil);
 		assert(!strcmp(kmemcachefindslab(ptrs[i])->name, "kmemcache8"));
