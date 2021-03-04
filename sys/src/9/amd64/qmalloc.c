@@ -262,13 +262,15 @@ qmallocalign(usize nbytes, uintptr align, i32 offset, usize span)
 
 	return p + 1;
 }
-
+u64 splhi(void);
 static void *
 qmalloc(usize nbytes)
 {
 	Qlist *qlist;
 	Header *p, *q;
 	uint nunits, n;
+	splhi();
+	die("foo");
 
 	///* FIXME: (ignore for now)
 	if(nbytes == 0)

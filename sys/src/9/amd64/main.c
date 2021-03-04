@@ -518,7 +518,6 @@ main(Mach *mach, u32 mbmagic, u32 mbaddress)
 	cgapost(sizeof(uintptr) * 8);
 
 	kmemcacheinitall();
-	mallocinit();
 	pamapinit();
 	multiboot(mbmagic, mbaddress, 0);
 	options(oargc, oargv);
@@ -550,12 +549,18 @@ main(Mach *mach, u32 mbmagic, u32 mbaddress)
 	 * Mmuinit before meminit because it flushes the TLB.
 	 */
 	mmuinit();
+	mallocinit();
+	meminit();
+
+	confinit();
+	archinit();
+
+	setphysmembounds();
+	umeminit();
+	pageinit();
 
 	ioinit();
 	keybinit();
-	meminit();
-	confinit();
-	archinit();
 
 	/*
 	 * Acpiinit will cause the first malloc
@@ -567,8 +572,6 @@ main(Mach *mach, u32 mbmagic, u32 mbaddress)
 	 * things like that completely broken).
 	 */
 	acpiinit();
-
-	umeminit();
 
 	/*
 	 * This is necessary with GRUB and QEMU.
@@ -601,7 +604,6 @@ main(Mach *mach, u32 mbmagic, u32 mbaddress)
 	mouseenable();
 
 	devtabreset();
-	pageinit();
 	swapinit();
 	userinit();
 	/* Forcing to single core if desired */

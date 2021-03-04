@@ -107,14 +107,14 @@ pgalloc(usize size, int color)
 	int si;
 
 	si = getpgszi(size);
-	if((pg = malloc(sizeof(Page))) == nil){
+	if((pg = kmalloc(sizeof(Page))) == nil){
 		DBG("pgalloc: malloc failed\n");
 		return nil;
 	}
 	memset(pg, 0, sizeof *pg);
 	if((pg->pa = physalloc(size, &color, pg)) == 0){
 		DBG("pgalloc: physalloc failed: size %#lx color %d\n", size, color);
-		free(pg);
+		kfree(pg);
 		return nil;
 	}
 	pg->pgszi = si; /* size index */
@@ -128,7 +128,7 @@ pgfree(Page *pg)
 {
 	decref(&pga.pgsza[pg->pgszi].npages);
 	physfree(pg->pa, sys->pgsz[pg->pgszi]);
-	free(pg);
+	kfree(pg);
 }
 
 void

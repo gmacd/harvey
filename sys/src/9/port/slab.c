@@ -79,10 +79,16 @@ struct KMemCache {
 alignas(4096) static KSlab slab8;
 alignas(4096) static KSlab slab16;
 alignas(4096) static KSlab slab32;
+alignas(4096) static KSlab slab64;
+alignas(4096) static KSlab slab128;
+alignas(4096) static KSlab slab256;
 static KMemCache kmalloccaches[] = {
 	{ .name = "kmemcache8", .objsize = 8, .slab = &slab8 },
 	{ .name = "kmemcache16", .objsize = 16, .slab = &slab16 },
 	{ .name = "kmemcache32", .objsize = 32, .slab = &slab32 },
+	{ .name = "kmemcache64", .objsize = 64, .slab = &slab64 },
+	{ .name = "kmemcache128", .objsize = 128, .slab = &slab128 },
+	{ .name = "kmemcache256", .objsize = 256, .slab = &slab256 },
 };
 
 // getslabforbuf will return the slab struct that owns the given buf

@@ -73,7 +73,7 @@ meminit(void)
 	DBG("npage %llu upage %lu\n", conf.npage, conf.upages);
 }
 
-static void
+void
 setphysmembounds(void)
 {
 	u64 pmstart, pmend;
@@ -94,8 +94,6 @@ void
 umeminit(void)
 {
 	extern void physallocdump(void);
-	setphysmembounds();
-
 	for(PAMap *m = pamap; m != nil; m = m->next){
 		if(m->type != PamMEMORY)
 			continue;

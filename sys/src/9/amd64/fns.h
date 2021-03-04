@@ -159,6 +159,7 @@ u64 spllo(void);
 void splx(u64);
 void splxpc(u64);
 void kstackok(void);	      /* panic if kstack guards garbaged, works with and without externup */
+void setphysmembounds(void);
 Stackframe *stackframe(void); /* l64v.S */
 void stacksnippet(void);
 void stopac(void);
