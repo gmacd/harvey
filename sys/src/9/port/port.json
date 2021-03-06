@@ -79,7 +79,8 @@
 			"../port/syszio.c",
 			"../port/taslock.c",
 			"../port/tod.c",
-			"../port/watermarks.c"
+			"../port/watermarks.c",
+			"../port/vmem.c"
 		]
 	}
 ]
