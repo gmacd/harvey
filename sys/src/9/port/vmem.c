@@ -89,9 +89,15 @@ static void initarenas()
 	}
 }
 
+// Create a new arena, initialising with the span [addr, addr+size) to the arena
 VMemArena *
-vmemcreate(char *name, void *base, usize size, usize quantum)
+vmemcreate(char *name, void *addr, usize size, usize quantum)
 {
+	assert(name);
+	assert(strlen(name) <= KNAMELEN-1);
+	assert(addr == 0 || size > 0);
+	assert(quantum > 0);
+
 	lock(&arenalock);
 
 	inittags();
@@ -110,9 +116,26 @@ vmemcreate(char *name, void *base, usize size, usize quantum)
 	freetags = freetags->next;
 	memset(arena->tag, 0, sizeof(Tag));
 
-	arena->tag->base = base;
+	arena->tag->base = addr;
 	arena->tag->size = size;
 
 	unlock(&arenalock);
 	return arena;
+}
+
+// Add the span [addr, addr+size) to the arena
+void *
+vmemadd(VMemArena *arena, void *addr, usize size)
+{
+	assert(arena);
+	assert(addr);
+	assert(size > 0);
+
+	// tags are in order, find the one that either contains addr or is after
+	Tag *tag = arena->tag;
+	while (tag != nil && tag->base > addr) {
+		tag = tag->next;
+	}
+
+	return addr;
 }
