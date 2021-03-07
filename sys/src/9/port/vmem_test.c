@@ -23,6 +23,8 @@ typedef u64		uintptr;
 #define HOWMANY(x, y) (((x) + ((y)-1)) / (y))
 #define ROUNDUP(x, y) (HOWMANY((x), (y)) * (y))
 #define ROUNDDN(x, y) (((x) / (y)) * (y))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define panic printf
 #define print printf
 
@@ -98,10 +100,7 @@ testcreate(void)
 	assert(!strcmp(b->name, "xxx"));
 	assert(b->next == nil);
 	assert(b->quantum == 123);
-	assert(b->tag->base == 0);
-	assert(b->tag->size == 0);
-	assert(b->tag->next == nil);
-	assert(b->tag->prev == nil);
+	assert(b->tag == nil);
 }
 
 void

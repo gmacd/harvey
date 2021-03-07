@@ -65,12 +65,13 @@ static void inittags()
 	}
 
 	if (!freetags) {
-		panic("no freetags remainings");
+		panic("no freetags remaining");
 	}
 }
 
 // Ensure the arenas have been intialised.  If more needed, try to allocate.
-static void initarenas()
+static void
+initarenas()
 {
 	if (!freearenas) {
 		// Either wire up the initialarenas, or create more from a new page
@@ -85,8 +86,38 @@ static void initarenas()
 	}
 
 	if (!freearenas) {
-		panic("no freearenas remainings");
+		panic("no freearenas remaining");
 	}
+}
+
+// todo try to fetch more tags
+static Tag*
+createtag(void *addr, usize size)
+{
+	if (!freetags) {
+		panic("no freetags remaining");
+	}
+
+	Tag *tag = freetags;
+	freetags = freetags->next;
+	memset(tag, 0, sizeof(Tag));
+	tag->base = addr;
+	tag->size = size;
+	return tag;
+}
+
+static void
+freetag(Tag *tag)
+{
+	if (tag->prev) {
+		tag->prev->next = tag->next;
+	}
+	if (tag->next) {
+		tag->next->prev = tag->prev;
+	}
+	memset(tag, 0, sizeof(Tag));
+	tag->next = freetags;
+	freetags = tag;
 }
 
 // Create a new arena, initialising with the span [addr, addr+size) to the arena
@@ -112,29 +143,57 @@ vmemcreate(char *name, void *addr, usize size, usize quantum)
 	arena->quantum = quantum;
 
 	// Get the next tag
-	arena->tag = freetags;
-	freetags = freetags->next;
-	memset(arena->tag, 0, sizeof(Tag));
-
-	arena->tag->base = addr;
-	arena->tag->size = size;
+	if (size > 0) {
+		arena->tag = createtag(addr, size);
+	}
 
 	unlock(&arenalock);
 	return arena;
 }
 
 // Add the span [addr, addr+size) to the arena
+// todo lock, create new tags
 void *
 vmemadd(VMemArena *arena, void *addr, usize size)
 {
 	assert(arena);
-	assert(addr);
 	assert(size > 0);
 
-	// tags are in order, find the one that either contains addr or is after
+	// tags are in order, find the one that either contains addr or is before
+	// basically we want to find an insertion point, insert the new tag,
+	// then do any merging.  this is simpler than trying to merge in place.
+	// if there are no tags, tag should be nil.
+	// if there are any tags at all, tag should not be nil.
 	Tag *tag = arena->tag;
-	while (tag != nil && tag->base > addr) {
+	while (tag != nil && tag->next != nil && tag->base < addr) {
 		tag = tag->next;
+	}
+
+	Tag *newtag = createtag(addr, size);
+	if (tag) {
+		newtag->next = tag->next;
+		newtag->prev = tag;
+		tag->next = newtag;
+	} else {
+		arena->tag = newtag;
+	}
+
+	// merge prev tag
+	if (tag) {
+		if (tag->base + tag->size >= newtag->base) {
+			usize mergedsize = (newtag->base + newtag->size) - tag->base;
+			tag->size = MAX(tag->size, mergedsize);
+			freetag(newtag);
+		}
+	}
+	// merge next tag
+	Tag *nexttag = tag->next;
+	if (nexttag) {
+		if (newtag->base + newtag->size >= nexttag->base) {
+			usize mergedsize = (nexttag->base + nexttag->size) - newtag->base;
+			newtag->size = MAX(newtag->size, mergedsize);
+			freetag(nexttag);
+		}
 	}
 
 	return addr;
