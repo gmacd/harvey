@@ -7,6 +7,10 @@
  * in the LICENSE file.
  */
 
+// Decisions:
+// - trying to avoid specialising this for memory ranges.  therefore using u64
+//   rather than void*, and referring to base rather than addr.
+
 #ifndef VMEM_TEST
 #include "u.h"
 #include "../port/lib.h"
@@ -22,7 +26,7 @@ static Lock arenalock;
 
 // boundary tag
 struct Tag {
-	void	*base;
+	u64	base;
 	usize	size;
 	Tag	*next;
 	Tag	*prev;
@@ -92,7 +96,7 @@ initarenas()
 
 // todo try to fetch more tags
 static Tag*
-createtag(void *addr, usize size)
+createtag(u64 base, usize size)
 {
 	if (!freetags) {
 		panic("no freetags remaining");
@@ -101,7 +105,7 @@ createtag(void *addr, usize size)
 	Tag *tag = freetags;
 	freetags = freetags->next;
 	memset(tag, 0, sizeof(Tag));
-	tag->base = addr;
+	tag->base = base;
 	tag->size = size;
 	return tag;
 }
@@ -120,13 +124,13 @@ freetag(Tag *tag)
 	freetags = tag;
 }
 
-// Create a new arena, initialising with the span [addr, addr+size) to the arena
+// Create a new arena, initialising with the span [base, base+size) to the arena
 VMemArena *
-vmemcreate(char *name, void *addr, usize size, usize quantum)
+vmemcreate(char *name, u64 base, usize size, usize quantum)
 {
 	assert(name);
 	assert(strlen(name) <= KNAMELEN-1);
-	assert(addr == 0 || size > 0);
+	assert(base == 0 || size > 0);
 	assert(quantum > 0);
 
 	lock(&arenalock);
@@ -144,57 +148,143 @@ vmemcreate(char *name, void *addr, usize size, usize quantum)
 
 	// Get the next tag
 	if (size > 0) {
-		arena->tag = createtag(addr, size);
+		arena->tag = createtag(base, size);
 	}
 
 	unlock(&arenalock);
 	return arena;
 }
 
-// Add the span [addr, addr+size) to the arena
+// based on pamapclearrange!
+static void
+vmemclearrange(VMemArena *arena, u64 base, usize size)
+{
+	Tag **ppp = &arena->tag, *np = arena->tag;
+	while (np != nil && size > 0) {
+		if(base + size <= np->base) {
+	      		// The range isn't in the list.
+	      		break;
+		}
+
+		// Are we there yet?
+		if (np->base < base && np->base + np->size <= base) {
+			ppp = &np->next;
+			np = np->next;
+			continue;
+		}
+
+		// We found overlap.
+		//
+		// If the left-side overlaps, adjust the current
+		// node to end at the overlap, and insert a new
+		// node at the overlap point.  It may be immediately
+		// deleted, but that's ok.
+		//
+		// If the right side overlaps, adjust size and
+		// delta accordingly.
+		//
+		// In both cases, we're trying to get the overlap
+		// to start at the same place.
+		//
+		// If the ranges overlap and start at the same
+		// place, adjust the current node and remove it if
+		// it becomes empty.
+		if (np->base < base) {
+			assert(base < np->base + np->size);
+			u64 osize = np->size;
+			np->size = base - np->base;
+			Tag *tp = createtag(base, osize - np->size);
+			tp->next = np->next;
+			np->next = tp;
+			ppp = &np->next;
+			np = tp;
+		} else if (base < np->base) {
+			assert(np->base < base + size);
+			usize delta = np->base - base;
+			base += delta;
+			size -= delta;
+		}
+		if (base == np->base) {
+			usize delta = size;
+			if(delta > np->size)
+				delta = np->size;
+			np->size -= delta;
+			np->base += delta;
+			base += delta;
+			size -= delta;
+		}
+
+		// If the resulting range is empty, remove it.
+		if (np->size == 0) {
+			Tag *tmp = np->next;
+			*ppp = tmp;
+			freetag(np);
+			np = tmp;
+			continue;
+		}
+		ppp = &np->next;
+		np = np->next;
+	}
+}
+
+// Add the span [base, base+size) to the arena
 // todo lock, create new tags
-void *
-vmemadd(VMemArena *arena, void *addr, usize size)
+u64
+vmemadd(VMemArena *arena, u64 base, usize size)
 {
 	assert(arena);
-	assert(size > 0);
 
-	// tags are in order, find the one that either contains addr or is before
-	// basically we want to find an insertion point, insert the new tag,
-	// then do any merging.  this is simpler than trying to merge in place.
-	// if there are no tags, tag should be nil.
-	// if there are any tags at all, tag should not be nil.
-	Tag *tag = arena->tag;
-	while (tag != nil && tag->next != nil && tag->base < addr) {
-		tag = tag->next;
+	// Ignore empty regions.
+	if (size == 0) {
+		return base;
 	}
 
-	Tag *newtag = createtag(addr, size);
-	if (tag) {
-		newtag->next = tag->next;
-		newtag->prev = tag;
-		tag->next = newtag;
-	} else {
-		arena->tag = newtag;
+	// If the list is empty, just add the entry and return.
+	if (arena->tag == nil){
+		arena->tag = createtag(base, size);
+		return base;
 	}
 
-	// merge prev tag
-	if (tag) {
-		if (tag->base + tag->size >= newtag->base) {
-			usize mergedsize = (newtag->base + newtag->size) - tag->base;
-			tag->size = MAX(tag->size, mergedsize);
-			freetag(newtag);
+	// Remove this region from any existing regions.
+	vmemclearrange(arena, base, size);
+
+	// Find either a map entry with an address greater
+	// than that being returned, or the end of the map.
+	Tag **ppp = &arena->tag;
+	Tag *np = arena->tag;
+	Tag *pp = nil;
+	while (np != nil && np->base <= base) {
+		ppp = &np->next;
+		pp = np;
+		np = np->next;
+	}
+
+	// See if we can combine with previous region.
+	if (pp != nil && pp->base + pp->size == base) {
+		pp->size += size;
+
+		// And successor region?  If we do it here,
+		// we free the successor node.
+		if (np != nil && base + size == np->base) {
+			pp->size += np->size;
+			pp->next = np->next;
+			freetag(np);
 		}
-	}
-	// merge next tag
-	Tag *nexttag = tag->next;
-	if (nexttag) {
-		if (newtag->base + newtag->size >= nexttag->base) {
-			usize mergedsize = (nexttag->base + nexttag->size) - newtag->base;
-			newtag->size = MAX(newtag->size, mergedsize);
-			freetag(nexttag);
-		}
+
+		return base;
 	}
 
-	return addr;
+	// Can we combine with the successor region?
+	if (np != nil && base + size == np->base) {
+		np->base = base;
+		np->size += size;
+		return base;
+	}
+
+	// Insert a new tag
+	pp = createtag(base, size);
+	*ppp = pp;
+	pp->next = np;
+
+	return base;
 }
