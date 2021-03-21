@@ -60,6 +60,7 @@ typedef struct Strace Strace;
 typedef struct Timer Timer;
 typedef struct Timers Timers;
 typedef struct Uart Uart;
+typedef struct VMemArena VMemArena;
 typedef struct Waitq Waitq;
 typedef struct Waitstats Waitstats;
 typedef struct Walkqid Walkqid;

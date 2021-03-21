@@ -416,6 +416,8 @@ void validname(char *, int);
 char *validnamedup(char *, int);
 void validstat(unsigned char *, usize);
 void *vmemchr(const void *, int, u32);
+VMemArena *vmemcreate(char *, u64, usize, usize);
+u64 vmemadd(VMemArena *, u64, usize);
 Proc *wakeup(Rendez *);
 int walk(Chan **, char **, int, int, int *);
 void wlock(RWlock *);

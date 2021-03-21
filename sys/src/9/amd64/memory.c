@@ -90,9 +90,13 @@ setphysmembounds(void)
 	sys->pmend = pmend;
 }
 
+VMemArena *umemarena;
+
 void
 umeminit(void)
 {
+	umemarena = vmemcreate("umem", 0, 0, PGSZ);
+
 	extern void physallocdump(void);
 	for(PAMap *m = pamap; m != nil; m = m->next){
 		if(m->type != PamMEMORY)
@@ -107,6 +111,7 @@ umeminit(void)
 		// if (m->size == 0)
 		// 	continue;
 		physinit(m->addr, m->size);
+		vmemadd(umemarena, m->addr, m->size);
 	}
 	physallocdump();
 }
