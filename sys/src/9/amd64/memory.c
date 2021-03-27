@@ -90,28 +90,60 @@ setphysmembounds(void)
 	sys->pmend = pmend;
 }
 
+VMemArena *kmemarena;
 VMemArena *umemarena;
+extern void *kheap;
 
 void
 umeminit(void)
 {
-	umemarena = vmemcreate("umem", 0, 0, PGSZ);
-
 	extern void physallocdump(void);
+
+	// todo constant? arch-specific
+	const usize pgsz = 2 * MiB;
+	const usize kmemsize = 256 * MiB;
+
+	int kmemallocated = 0;
+	kmemarena = vmemcreate("kmem", 0, 0, pgsz);
+	umemarena = vmemcreate("umem", 0, 0, pgsz);
+
 	for(PAMap *m = pamap; m != nil; m = m->next){
 		if(m->type != PamMEMORY)
 			continue;
-		if(m->addr < 2 * MiB)
+		if(m->addr < pgsz)
 			continue;
-		// if(m->size < 2*MiB)
-		// 	continue;
-		// usize offset=ROUNDUP(m->addr, 2*MiB)-m->addr;
-		// m->size -= offset;
-		// m->addr += offset;
-		// if (m->size == 0)
-		// 	continue;
-		physinit(m->addr, m->size);
-		vmemadd(umemarena, m->addr, m->size);
+
+		// qmalloc needs a 256MiB contiguous region, so allocate the first of
+		// these regions to the kmemarena.
+		// todo once we switch to the slab allocator, we no longer need a
+		// contiguous region.
+		usize addroffset = ROUNDUP(m->addr, pgsz) - m->addr;
+		u64 addr = m->addr - addroffset;
+		usize size = m->size + addroffset;
+		if (size == 0)
+		 	continue;
+
+		// TODO remove when we switch to vmem
+		//physinit(addr, size);
+
+		if (!kmemallocated && size >= kmemsize) {
+			vmemadd(kmemarena, addr, kmemsize);
+			addr += kmemsize;
+			size -= kmemsize;
+			kmemallocated = 1;
+		}
+
+		if (size > 0) {
+			vmemadd(umemarena, addr, size);
+		}
 	}
-	physallocdump();
+
+	if (!kmemallocated) {
+		panic("couldn't allocate kmem");
+	}
+	kheap = vmemalloc(kmemarena, kmemsize, 0);
+
+	// todo remove when we switch to vmem
+	//physallocdump();
+	vmemdump();
 }

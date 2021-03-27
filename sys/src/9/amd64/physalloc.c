@@ -514,7 +514,7 @@ xphysalloc(Bal *b, u64 size, void *tag)
 	Buddy *avail, *blocks;
 	u64 m;
 
-	DBG("physalloc\n");
+	print("physalloc\n");
 	assert(b->size > 0);
 
 	avail = b->avail;
@@ -590,6 +590,7 @@ xphysalloc(Bal *b, u64 size, void *tag)
 u64
 physalloc(u64 size, int *colorp, void *tag)
 {
+	print("physalloc\n");
 	int i, color;
 	u64 m;
 

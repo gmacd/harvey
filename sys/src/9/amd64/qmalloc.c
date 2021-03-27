@@ -269,8 +269,8 @@ qmalloc(usize nbytes)
 	Qlist *qlist;
 	Header *p, *q;
 	uint nunits, n;
-	splhi();
-	die("foo");
+	//splhi();
+	//die("foo");
 
 	///* FIXME: (ignore for now)
 	if(nbytes == 0)
@@ -653,10 +653,15 @@ setmalloctag(void *v, u32 i)
 {
 }
 
+void *kheap = nil;
+
 void
 mallocinit(void)
 {
-	static alignas(2 * MiB) unsigned char kheap[256 * MiB];
+	//static alignas(2 * MiB) unsigned char kheap[256 * MiB];
+	if (!kheap) {
+		panic("kheap hasn't been allocated yet");
+	}
 
 	if(tailptr != nil)
 		return;

@@ -153,7 +153,7 @@ allocapage(void)
 {
 	void *p;
 
-	if(1){
+	/*if(1){
 		// XXX: Something is blowing away page tables.
 		// Reserve some space around them for whatever
 		// is messing things up....
@@ -161,7 +161,7 @@ allocapage(void)
 		char *pp = mallocalign(npage * PTSZ, PTSZ, 0, 0);
 		assert(pp != nil);
 		p = pp + (npage / 2) * PTSZ;
-	}else{
+	}else{*/
 
 		static alignas(4096) unsigned char alloc[16 * MiB];
 		static usize offset = 0;
@@ -170,7 +170,7 @@ allocapage(void)
 			return nil;
 		p = alloc + offset;
 		offset += PTSZ;
-	}
+	//}
 
 	return p;
 }

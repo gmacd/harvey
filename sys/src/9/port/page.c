@@ -100,6 +100,8 @@ getpgszi(usize size)
 	return -1;
 }
 
+extern VMemArena *kmemarena;
+
 Page *
 pgalloc(usize size, int color)
 {
@@ -107,16 +109,28 @@ pgalloc(usize size, int color)
 	int si;
 
 	si = getpgszi(size);
+	print("-->pgalloc1\n");
 	if((pg = kmalloc(sizeof(Page))) == nil){
 		DBG("pgalloc: malloc failed\n");
 		return nil;
 	}
+	print("-->pgalloc2\n");
 	memset(pg, 0, sizeof *pg);
-	if((pg->pa = physalloc(size, &color, pg)) == 0){
-		DBG("pgalloc: physalloc failed: size %#lx color %d\n", size, color);
+	print("-->pgalloc3\n");
+	/*if((pg->pa = physalloc(size, &color, pg)) == 0){
+		print("pgalloc: physalloc failed: size %#lx color %d\n", size, color);
+		kfree(pg);
+		return nil;
+	}*/
+
+	if ((pg->pa = (u64)vmemalloc(kmemarena, size, 0)) == 0) {
+		print("pgalloc: vmemalloc failed: size %#lx color %d\n", size, color);
 		kfree(pg);
 		return nil;
 	}
+	pg->color = 0;
+
+	print("-->pgalloc4\n");
 	pg->pgszi = si; /* size index */
 	incref(&pga.pgsza[si].npages);
 	pg->color = color;

@@ -548,15 +548,23 @@ main(Mach *mach, u32 mbmagic, u32 mbaddress)
 	/*
 	 * Mmuinit before meminit because it flushes the TLB.
 	 */
+	print("1\n");
 	mmuinit();
-	mallocinit();
+	print("2\n");
 	meminit();
+	print("4\n");
 
 	confinit();
+	print("5\n");
 	archinit();
+	print("6\n");
 
 	setphysmembounds();
+	print("7\n");
 	umeminit();
+	print("8\n");
+	mallocinit();
+	print("9\n");
 	pageinit();
 
 	ioinit();
